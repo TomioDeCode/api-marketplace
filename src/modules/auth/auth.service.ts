@@ -1,152 +1,303 @@
 import {
   Injectable,
-  BadRequestException,
-  InternalServerErrorException,
   UnauthorizedException,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/db/prisma.service';
 import { hash, verify } from 'argon2';
-import { RegisterDto } from './dto/register.dto';
 import { Tokens } from 'src/interfaces/tokens.interface';
-import { ConfigService } from '@nestjs/config';
-import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private configService: ConfigService,
   ) {}
 
-  async login(dto: LoginDto) {
+  async register(dto: RegisterDto) {
     try {
+      if (!dto || !dto.email || !dto.password || !dto.username) {
+        throw new BadRequestException({
+          isSuccess: false,
+          message: 'Missing required fields',
+          error: 'Bad Request',
+        });
+      }
+
+      const [existingUserEmail, existingUsername] = await Promise.all([
+        this.prisma.user.findUnique({
+          where: { email: dto.email.toLowerCase() },
+        }),
+
+        this.prisma.user.findUnique({
+          where: { username: dto.username },
+        }),
+      ]);
+
+      if (existingUserEmail) {
+        throw new BadRequestException({
+          isSuccess: false,
+          message: 'Email already registered',
+          error: 'Bad Request',
+        });
+      }
+
+      if (existingUsername) {
+        throw new BadRequestException({
+          isSuccess: false,
+          message: 'Username already taken',
+          error: 'Bad Request',
+        });
+      }
+
+      const hashedPassword = await hash(dto.password);
+      const user = await this.prisma.user.create({
+        data: {
+          email: dto.email.toLowerCase(),
+          password: hashedPassword,
+          username: dto.username,
+          role: 'SELLER',
+        },
+      });
+
+      const tokens = await this.getTokens(user.id, user.email, user.role);
+      await this.updateRefreshToken(user.id, tokens.refresh_token);
+
+      return {
+        isSuccess: true,
+        message: 'Registration successful',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+          },
+        },
+      };
+    } catch (error) {
+      console.error('Register error:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        isSuccess: false,
+        message: 'Registration failed',
+        error: 'Bad Request',
+      });
+    }
+  }
+
+  async login(email: string, password: string) {
+    try {
+      if (!email || !password) {
+        throw new BadRequestException({
+          isSuccess: false,
+          message: 'Missing required fields',
+          error: 'Bad Request',
+        });
+      }
+
       const user = await this.prisma.user.findUnique({
-        where: { email: dto.email },
+        where: { email: email.toLowerCase() },
       });
 
       if (!user) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new UnauthorizedException({
+          isSuccess: false,
+          message: 'Invalid credentials',
+          error: 'Unauthorized',
+        });
       }
 
-      const passwordMatches = await verify(user.password, dto.password);
-
+      const passwordMatches = await verify(user.password, password);
       if (!passwordMatches) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new UnauthorizedException({
+          isSuccess: false,
+          message: 'Invalid credentials',
+          error: 'Unauthorized',
+        });
       }
 
-      const tokens = await this.getTokens(user.id, user.email);
+      const tokens = await this.getTokens(user.id, user.email, user.role);
+      await this.updateRefreshToken(user.id, tokens.refresh_token);
 
       return {
-        user: {
-          id: user.id,
-          email: user.email,
+        isSuccess: true,
+        message: 'Login successful',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+          },
+          ...tokens,
         },
-        ...tokens,
       };
     } catch (error) {
       console.error('Login error:', error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException('Login failed');
+      throw new UnauthorizedException({
+        isSuccess: false,
+        message: 'Login failed',
+        error: 'Unauthorized',
+      });
     }
   }
 
-  async register(dto: RegisterDto) {
+  async refreshTokens(userId: string, refreshToken: string) {
     try {
-      const userExists = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
+      console.log('refreshTokens called with userId:', userId);
+      console.log('refreshTokens called with refreshToken:', refreshToken);
 
-      if (userExists) {
-        throw new BadRequestException('Email already registered');
+      if (!userId || !refreshToken) {
+        console.log('Missing userId or refreshToken');
+        throw new UnauthorizedException({
+          isSuccess: false,
+          message: 'Missing required fields',
+          error: 'Unauthorized',
+        });
       }
 
-      const hashedPassword = await hash(dto.password.toString());
-      const user = await this.prisma.user.create({
-        data: {
-          email: dto.email,
-          password: hashedPassword,
-          username: dto.email,
-          role: 'SELLER',
-        },
-      });
+      console.log('refreshToken:', refreshToken);
+      console.log('userId:', userId);
 
-      const tokens = await this.getTokens(user.id, user.email);
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-        },
-        ...tokens,
-      };
-    } catch (error) {
-      console.error('Register error:', error);
-      throw new BadRequestException('Registration failed');
-    }
-  }
-
-  async refreshToken(token: string): Promise<Tokens> {
-    if (!token) {
-      throw new UnauthorizedException('Refresh token is required');
-    }
-
-    try {
-      const decoded = await this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      });
+      if (refreshToken.trim() === '') {
+        console.log('Empty refresh token received');
+        throw new UnauthorizedException({
+          isSuccess: false,
+          message: 'Invalid refresh token',
+          error: 'Unauthorized',
+        });
+      }
 
       const user = await this.prisma.user.findUnique({
-        where: { id: decoded.sub },
+        where: { id: userId },
       });
 
-      if (!user) {
-        throw new UnauthorizedException('User not found');
+      if (!user || !user.refreshToken) {
+        throw new UnauthorizedException({
+          isSuccess: false,
+          message: 'Access denied',
+          error: 'Unauthorized',
+        });
       }
 
-      const tokens = await this.getTokens(user.id, user.email);
-      return tokens;
+      const refreshTokenMatches = await verify(user.refreshToken, refreshToken);
+
+      if (!refreshTokenMatches) {
+        throw new UnauthorizedException({
+          isSuccess: false,
+          message: 'Access denied',
+          error: 'Unauthorized',
+        });
+      }
+
+      const tokens = await this.getTokens(user.id, user.email, user.role);
+      await this.updateRefreshToken(user.id, tokens.refresh_token);
+
+      return {
+        isSuccess: true,
+        message: 'Token refresh successful',
+        data: {
+          ...tokens,
+        },
+      };
     } catch (error) {
-      console.error('Refresh token error:', error);
-      throw new UnauthorizedException('Invalid refresh token');
+      console.error('Refresh token error details:', {
+        error: error.message,
+        userId,
+        hasRefreshToken: !!refreshToken,
+      });
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException({
+        isSuccess: false,
+        message: 'Token refresh failed',
+        error: 'Unauthorized',
+      });
     }
   }
 
-  private async getTokens(userId: string, email: string): Promise<Tokens> {
+  async logout(userId: string) {
     try {
-      const [accessToken, refreshToken] = await Promise.all([
-        this.jwtService.signAsync(
-          {
-            sub: userId,
-            email,
+      await this.prisma.user.updateMany({
+        where: {
+          id: userId,
+          refreshToken: {
+            not: null,
           },
-          {
-            secret: this.configService.get<string>('JWT_SECRET'),
-            expiresIn: '15m',
-          },
-        ),
-        this.jwtService.signAsync(
-          {
-            sub: userId,
-            email,
-          },
-          {
-            secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-            expiresIn: '7d',
-          },
-        ),
-      ]);
+        },
+        data: {
+          refreshToken: null,
+        },
+      });
 
       return {
-        access_token: accessToken,
-        refresh_token: refreshToken,
+        isSuccess: true,
+        message: 'Logout successful',
       };
     } catch (error) {
-      console.error('Token generation error:', error);
-      throw new InternalServerErrorException('Failed to generate tokens');
+      console.error('Logout error:', error);
+      throw new BadRequestException({
+        isSuccess: false,
+        message: 'Logout failed',
+        error: 'Bad Request',
+      });
     }
+  }
+
+  private async updateRefreshToken(userId: string, refreshToken: string) {
+    const hashedRefreshToken = await hash(refreshToken);
+    await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        refreshToken: hashedRefreshToken,
+      },
+    });
+  }
+
+  private async getTokens(
+    userId: string,
+    email: string,
+    role: string,
+  ): Promise<Tokens> {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          email,
+          role,
+        },
+        {
+          expiresIn: '15m',
+          secret: process.env.JWT_SECRET,
+        },
+      ),
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          email,
+          role,
+        },
+        {
+          expiresIn: '7d',
+          secret: process.env.JWT_REFRESH_SECRET,
+        },
+      ),
+    ]);
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    };
   }
 }

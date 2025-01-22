@@ -4,9 +4,10 @@ CREATE TABLE `users` (
     `username` VARCHAR(191) NOT NULL,
     `email` VARCHAR(191) NOT NULL,
     `password` VARCHAR(191) NOT NULL,
-    `role` ENUM('buyer', 'seller', 'admin') NOT NULL,
+    `role` ENUM('BUYER', 'SELLER', 'ADMIN') NOT NULL,
     `emailVerified` BOOLEAN NOT NULL DEFAULT false,
     `verificationCode` VARCHAR(191) NULL,
+    `refreshToken` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 

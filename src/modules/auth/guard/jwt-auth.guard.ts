@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
@@ -8,7 +8,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const token = request.headers.authorization;
 
     if (!token) {
-      throw new Error('No JWT token found');
+      throw new UnauthorizedException({
+        isSuccess: false,
+        message: 'No JWT token found',
+        error: 'Unauthorized'
+      });
     }
 
     return super.canActivate(context);
@@ -16,8 +20,13 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
-      throw err || new Error('Unauthorized');
+      throw err || new UnauthorizedException({
+        isSuccess: false,
+        message: 'Unauthorized',
+        error: 'Unauthorized'
+      });
     }
+
     return user;
   }
 }
