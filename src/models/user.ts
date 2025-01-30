@@ -14,8 +14,8 @@ export const User = z.object({
     .string()
     .min(8, "Password must be at least 8 characters long")
     .max(255, "Password must be at most 255 characters long"),
-  role: z.nativeEnum(USER_ROLE).optional(),
-  isEmailVerified: z.boolean().optional(),
+  role: z.nativeEnum(USER_ROLE).default("USER"),
+  isEmailVerified: z.boolean().default(false),
   verificationToken: z.string().nullable().optional(),
   tokenExpiry: z.date().nullable().optional(),
   createdAt: z.string().datetime().optional(),

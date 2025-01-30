@@ -1,7 +1,6 @@
 import { Context } from "hono";
 import { authService } from "../services";
-import { honoResponse } from "../utils";
-import { ServiceError } from "../utils/response";
+import { honoResponse, ServiceError } from "../utils";
 
 export const authController = {
   register: async (c: Context) => {
@@ -9,11 +8,14 @@ export const authController = {
       const body = await c.req.json();
       const result = await authService.register(body);
 
-      return honoResponse.success(c, {
-        message:
-          "Registration successful! Please check your email for verification",
-        user: result.user,
-      });
+      return honoResponse.success(
+        c,
+        {
+          user: result.user,
+        },
+        201,
+        "Registration successful! Please check your email for verification"
+      );
     } catch (error) {
       if (error instanceof ServiceError) {
         return honoResponse.error(
@@ -32,11 +34,15 @@ export const authController = {
       const body = await c.req.json();
       const result = await authService.login(body);
 
-      return honoResponse.success(c, {
-        message: "Login successful! Welcome back",
-        user: result.user,
-        token: result.token,
-      });
+      return honoResponse.success(
+        c,
+        {
+          user: result.user,
+          token: result.token,
+        },
+        200,
+        "Login successful! Welcome back"
+      );
     } catch (error) {
       if (error instanceof ServiceError) {
         return honoResponse.error(
@@ -58,12 +64,16 @@ export const authController = {
         return honoResponse.error(c, "Verification token is required", 400);
       }
 
-      const result = await authService.verifyEmail(token);
+      await authService.verifyEmail(token);
 
-      return honoResponse.success(c, {
-        message: "Email verification successful! You can now login",
-        verified: true,
-      });
+      return honoResponse.success(
+        c,
+        {
+          verified: true,
+        },
+        200,
+        "Email verification successful! You can now login"
+      );
     } catch (error) {
       if (error instanceof ServiceError) {
         return honoResponse.error(
@@ -86,11 +96,15 @@ export const authController = {
 
       const result = await authService.resendVerificationEmail(body.email);
 
-      return honoResponse.success(c, {
-        message: "Verification email has been resent. Please check your inbox",
-        email: body.email,
-        verificationToken: result.verificationToken,
-      });
+      return honoResponse.success(
+        c,
+        {
+          email: body.email,
+          verificationToken: result.verificationToken,
+        },
+        200,
+        "Verification email has been resent. Please check your inbox"
+      );
     } catch (error) {
       if (error instanceof ServiceError) {
         return honoResponse.error(

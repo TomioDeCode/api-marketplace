@@ -1,8 +1,6 @@
 import { Context, Next } from "hono";
-import { jwt } from "../utils";
-import { honoResponse } from "../utils";
+import { jwt, TokenPayload, honoResponse } from "../utils";
 import { USER_ROLE } from "../constant";
-import { TokenPayload } from "../utils";
 
 export const authMiddleware = {
   isAuth: async (c: Context, next: Next) => {

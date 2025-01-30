@@ -59,10 +59,11 @@ export const error = {
 };
 
 export const honoResponse = {
-  success<T>(c: Context, data: T, status = 200) {
+  success<T>(c: Context, data: T, status = 200, message: string) {
     c.status(status as any);
     const response: ApiResponse<T> = {
       success: true,
+      message: message,
       data,
       timestamp: new Date().toISOString(),
     };
@@ -91,12 +92,14 @@ export const honoResponse = {
     data: T[],
     total: number,
     page: number,
+    message: string,
     limit: number,
     status = 200
   ) {
     c.status(status as any);
     const response: ApiResponse<T[]> = {
       success: true,
+      message: message,
       data,
       meta: {
         total,

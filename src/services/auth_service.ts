@@ -1,11 +1,8 @@
 import { prisma } from "../libs/prisma";
-import { jwt } from "../utils/jwt";
-import { bcrypt } from "../utils/bcrypt";
+import { jwt, TokenPayload, bcrypt, ServiceError } from "../utils";
 import { USER_ROLE } from "../constant";
-import { TokenPayload } from "../utils/jwt";
 import { User, Auth } from "../models";
 import { z } from "zod";
-import { ServiceError } from "../utils/response";
 
 export const authService = {
   async register(user: Omit<User, "id">) {
@@ -85,7 +82,7 @@ export const authService = {
         role: user.role,
       };
 
-      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET || "secret", {
+      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET || "", {
         expiresIn: "1d",
       });
 
