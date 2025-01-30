@@ -4,7 +4,7 @@ import { authMiddleware } from "../middleware";
 
 const userRouter = new Hono();
 
-userRouter.use("*", authMiddleware.isAuth);
+userRouter.use("*", authMiddleware.isAuth, authMiddleware.isAdmin);
 
 userRouter.get("", async (c) => {
   return await userController.index(c);
