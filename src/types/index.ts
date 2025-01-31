@@ -1,8 +1,8 @@
-export interface JWTPayload {
+import { JwtPayload } from "jsonwebtoken";
+
+export interface JWTPayload extends JwtPayload {
   userId: string;
   role: string;
-  iat?: number;
-  exp?: number;
 }
 
 export interface RegisterRequest {
@@ -19,6 +19,7 @@ export interface LoginRequest {
 export interface EndpointRequest {
   name: string;
   url: string;
+  headers: object;
   checkInterval?: number;
   timeout?: number;
 }
