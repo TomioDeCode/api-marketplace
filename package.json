@@ -1,0 +1,14 @@
+{
+  "name": "api-marketplace",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.0",
+    "hono": "^4.6.19",
+    "prisma": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
