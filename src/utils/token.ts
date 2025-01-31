@@ -4,7 +4,7 @@ import { JWTPayload } from "../types/index";
 
 export const generateToken = (payload: JWTPayload): string => {
   const options: SignOptions = {
-    expiresIn: Number(config.jwtExpiry),
+    expiresIn: config.jwtExpiry as any,
   };
 
   return sign(payload, config.jwtSecret as Secret, options);

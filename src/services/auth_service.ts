@@ -28,9 +28,9 @@ export class AuthService {
       throw new Error("Invalid credentials");
     }
 
-    if (!user.isEmailVerified) {
-      throw new Error("Email not verified");
-    }
+    // if (!user.isEmailVerified) {
+    //   throw new Error("Email not verified");
+    // }
 
     const token = generateToken({
       userId: user.id,

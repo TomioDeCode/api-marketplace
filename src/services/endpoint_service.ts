@@ -1,6 +1,6 @@
 import { prisma } from "../config/database";
 import { EndpointRequest } from "../types";
-import { Endpoint, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export class EndpointService {
   async create(userId: string, data: EndpointRequest) {
